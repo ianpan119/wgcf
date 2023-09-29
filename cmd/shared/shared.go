@@ -5,7 +5,11 @@ import (
 	"log"
 	"math"
 	"strings"
+	"strconv"
 
+	"encoding/base64"
+	"encoding/hex"
+	
 	"github.com/ViRb3/wgcf/cloudflare"
 	"github.com/ViRb3/wgcf/config"
 	"github.com/ViRb3/wgcf/util"
@@ -56,6 +60,37 @@ func F32ToHumanReadable(number float32) string {
 }
 
 func PrintDeviceData(thisDevice *cloudflare.Device, boundDevice *cloudflare.BoundDevice) {
+	clientID := thisDevice.Config.ClientId
+
+	// 解碼base64編碼的字串將其轉換為十六進制
+	decoded, err := base64.StdEncoding.DecodeString(clientID)
+	if err != nil {
+		fmt.Println(err)
+		return
+	}
+	hexString := hex.EncodeToString(decoded)
+
+	// 將十六行字串轉換為十行值並列印它們
+	var decValues []string
+	for i := 0; i < len(hexString); i += 2 {
+		hexByte := hexString[i : i+2]
+		decValue, _ := strconv.ParseInt(hexByte, 16, 64)
+		decValues = append(decValues, fmt.Sprintf("%d%d%d", decValue/100, (decValue/10)%10, decValue%10))
+	}
+
+	reserved := []int{}
+	for i := 0; i < len(hexString); i += 2 {
+		hexByte := hexString[i : i+2]
+		decValue, _ := strconv.ParseInt(hexByte, 16, 64)
+		reserved = append(reserved, int(decValue))
+	}
+
+	// 使用一个字符串切片收集所有的整数字符串
+	strValues := make([]string, len(reserved))
+	for i, value := range reserved {
+		strValues[i] = strconv.Itoa(value)
+	}
+	
 	log.Println("=======================================")
 	log.Printf("%-13s : %s\n", "Device name", *boundDevice.Name)
 	log.Printf("%-13s : %s\n", "Device model", thisDevice.Model)
@@ -64,6 +99,8 @@ func PrintDeviceData(thisDevice *cloudflare.Device, boundDevice *cloudflare.Boun
 	log.Printf("%-13s : %s\n", "Role", thisDevice.Account.Role)
 	log.Printf("%-13s : %s\n", "Premium data", F32ToHumanReadable(thisDevice.Account.PremiumData))
 	log.Printf("%-13s : %s\n", "Quota", F32ToHumanReadable(thisDevice.Account.Quota))
+	log.Printf("%-13s : %s\n", "Client ID", thisDevice.Config.ClientId)
+	log.Printf("%-13s : %s\n", "Reserved", strings.Join(strValues, ", "))
 	log.Println("=======================================")
 }
 
